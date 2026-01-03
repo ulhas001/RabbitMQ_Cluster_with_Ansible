@@ -1,157 +1,103 @@
-How to Setup AWS Elastic File System (EFS) on Ubuntu with persistent mount.
-===========================================================================
+How to automate RabbitMQ cluster creation with Docker using Ansible on multiple instances at once.
+==================================================================================================
 
 
+*   We’ll keep once instances as **control node** and other as **managed nodes**.
+*   Let’s create three instances.
 
-1.  Go to **Amazon Elastic File System** on AWS console
+![Creating instances](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*OauaE_wo8HEY5TQePPenFw.png)
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*1o3Cu8nSlm-c7ChLQAZfZA.png)
+*   Name your instances as **ansible-demo-control** (for control node) and **ansible-demo-managed1** and **ansible-demo-managed2**. (from other two managed nodes)
 
-2. Click **Create file system** and Name it accordingly with **VPC** of your choice, I am choosing default for this demonstration**.**
+![Naming instances.](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*Rfbe8XZPE9vR1AcBy7xu2g.png)
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*UWho5-ZhSNhIHV8__N8Z5w.png)
+### 2. SSH into managed node from control node.
 
-3. Click on **customize** to modify the EFS settings as per our use case.
+*   There are two ways to **ssh** into managed nodes:
+*   **First:** As we are using the same key-pair for all three instances (example-keypair) we have to just copy the keypair to the control node using **scp.**
+*   **Second:** Alternate way if you are not using AWS or keypair, you have to create one using **ssh-keygen** command. Copy the **public key** to the managed nodes and keep the **private key** on the control node to ssh into managed nodes.
+*   Let’s copy the keypair to the control node.
 
-*   I am disabling **automated backups** as it comes with additional costs but it is highly recommended in production environments.
+![Copying keypair to control node](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*IgjTnyhD4hqEUFzlem1OdA.png)
 
-![General settings](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*ZIqNlqA16zAAlRr72sgzRg.png)![Lifecycle management](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*N5SnCRikzuuFEf8izuooIQ.png)
+*   As you can see we have copied our keypair to the control node.
 
-*   I have used **bursting mode** for basic performance requirements as we are going to create only basic files.
+![Keypair present on control node.](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*67AhHQUpFUlcGTyw661DcQ.png)
 
-![Performance settings](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*zkfPx3K8AIFpIfBO16YOGg.png)
+*   Let’s give necessary permission to the keypair.
 
-**Note**: As I am creating EFS using the minimum cost options for this demonstration you can create according to your use case.
+![Giving permission to keypair](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*wswbXGk6EvSq0gC2yM-Z0w.png)
 
-4. Select the following networking setting as the **default VPC** we are using has default **Security group.**
+### 3. Installing ansible on control node.
 
-![Networking Access](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*cU5rMgb5_Ys0QYop9j-F4g.png)
-
-5. Leave the **File system policy** as is.
-
-![File system policy](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*kuQT5T0vju47nvOigvswyg.png)
-
-6. Review and Create the File system
-
-![Review and Create](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*-0nHsvBLylsrZQmjGRzVhA.png)
-
-7. Once Created wait until it’s state shows “**Available**”.
-
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*VE2GJVOU6k-WMlHoyU53ig.png)
-
-5. Now Let’s create two **instances**
-
-*   While creating instances, carefully configure the **VPC subnet** to the zone where the EFS is created.
-*   As I am using **One-Zone** for creation of File system.
-
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*yFXP8WM7EoU4OujeaRRWxQ.png)
-
-*   **Note**: You can skip above step if you are using **Regional option** for File system.
-
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*yFXP8WM7EoU4OujeaRRWxQ.png)
-
-*   Create two instances with free-tier eligible settings.
-
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*fCNmYQDnvbjqjxc_s--vfA.png)
-
-6. Use **EC2 Instance connect** to connect to the instances.
-
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*LI_OJ7W3vNUCN3AW4GXM3Q.png)
-
-7. Come back to **EFS** file system, select our file system we created and click on **view details**
-
-![Elastic file system](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*LSkPGuXUD-FJzTi7Z6kYfQ.png)
-
-8. Click on **Attach** to view options for mounting EFS to our instances. In this demo we will **mount via DNS**, if you want to mount it with IP address refer to this article: [https://docs.aws.amazon.com/efs/latest/ug/efs-mount-helper.html](https://docs.aws.amazon.com/efs/latest/ug/efs-mount-helper.html)
-
-*   As we are using **ubuntu,** we need to install the **NFS client** to mount EFS. For that run the following command.
+*   We just need to install **ansible** on the **control node**
+*   No need to install it on the **managed nodes**
+*   Let’s install ansible using below commands
 
 ```
-sudo apt-get update -y && sudo apt-get -y install nfs-common
+sudo apt update -y &&
+sudo apt install software-properties-common -y &&
+sudo add-apt-repository --yes --update ppa:ansible/ansible -y &&
+sudo apt install ansible -y
 ```
 
-9. Ensure the **security group** rules of instances is **allowed** in the EFS
+*   Check ansible version to ensure installation
 
-![Security group for instances.](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*T3bidBSlYFnmVUHdGuRZUw.png)
+![Ansible version check](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*V55ZjPDW1dTghXoFdUVNTA.png)
 
-*   Notice the **security group** of instance ends with **fcc2,** we have to add this to our **EFS network access**.
-*   For that click on **Network** tab on the EFS page and click on **manage**.
+### 4. Create ansible inventory file
 
-![Network Settings for EFS](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*jM9O_P44xH7v9c4iDSWUXw.png)
+*   To make connection to the managed nodes, we have to create a inventory file in which we will the information for connection as well as the hostname.
+*   Note: use private IPs of the managed nodes as public IPs keeps changing
 
-10. Make a directory as “**efs**” and copy the command (2nd one as we are using NFS client) from EFS view details section
+![inventory file for ansible](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*eeHkzloxP6gwQDfjx02BKw.png)
+
+*   Now put the ansible private key file (example-keypair) in the **ansible.cfg** so that it will fetch the private key from there.
+*   Edit the **ansible.cfg** and append this three lines.
 
 ```
-mkdir efs
-sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport <DNS name >:/ efs
+vi /etc/ansible/ansible.cfg
+
+[defaults]
+PRIVATE_KEY_FILE=/home/ubuntu/example-keypair.pem
+ANSIBLE_PYTHON_INTERPRETER=/usr/bin/python3
+INVENTORY=/home/ubuntu/inventory
 ``````
 
-You can see it is mounted on the first instance EFS-Demo-2
+**Note:** The variables should be same as mentioned above.
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*9-U_J29UZDCvl3e-9e8SgA.png)
+*   We are done with the setup!
 
-11. Do the similar steps from **8 to 10** on EFS-Demo-Instance-1, you’ll see the EFS in mounted on both instances.
+### 5. Test connection with ansible ad-hoc command
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*QhmXzoi1u3OE1DIHzGgfQw.png)
+*   Test with a random shell command
+*   **Note:** It will ask you to permanently store in the host list, confirm with typing “**yes**” for each managed node.
 
-12. Test **File system** by creating a file on one instance.
+![checking connection with managed nodes.](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*QxMoj2zzjxOaGOjVy935Gw.png)
 
-![Permission denied for user.](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*H0xTw89I5msJjZQWz57jIA.png)
+*   Boohoo!! we are done with setup and connection with managed nodes.
 
-*   You’ll face the similar **error** as **permission denied** for as EFS by default only allows **root user** access. You’ll have to change the **efs directory** ownership for **ubuntu** user. For that follow the bellow command
+### 6. Now let’s create necessary files for RabbitMQ cluster creation.
 
-```
-sudo chown ubuntu efs 
-````
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*5EKM8mRCAFHfIQ0bkVEfzg.png)
+*   Refer to this GitHub repository for creation of files including **ansible playbook**, **docker-compose.yml.j2**, **ansible_script.sh** and the **inventory file**: [https://github.com/ulhas001/RabbitMQ_Cluster_with_Ansible](https://github.com/ulhas001/RabbitMQ_Cluster_with_Ansible/tree/main)
+*   Understand the structure of the files carefully as for your case multiple nodes could be there so edit the files accordingly.
 
-*   Now file1 should be visible on **EFS-Demo-Instance-2**
+### 7. Explanation of files
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*ol7MjgEMKp3bKu8qpSvUHw.png)
+*   **ansible_script.sh**: It is a script written to form a cluster between managed nodes i.e. master and slaves nodes. Carefully edit the file as per your instance’s IP addresses and directories. You can add as many nodes as slaves to connect to the master in the last piece of code where the **rabbit2** activities are mentioned.
+*   **docker-compose.j2.yml**: This is a jinja template to dynamically pass the hostnames of our instances, so that we can join cluster for many slaves nodes using thier hostnames. Focus on the volumes mount for erlang cookie and data. This is necessary to run RabbitMQ.
+*   **inventory:** you can name it anything, but important things is the IP address and hostname of your instances, because this is the file which control node will take reference of, to execute the commands and automation.
+*   **rabbitmq_playbook.yml:** This is one of the important files as it is installing docker, docker-compose, and other plugins so that you don’t have to on the managed nodes, also it is copying the docker-compose.yml file with hostname of particular managed node on which is it executing. Also pulling the image and running the container has being taken care of.
 
-*   Voila!! you have a working Elastic file system for both instances, you attach it to much instances as you want, **BUT** the **mount** is **temporary**.
-*   What do you mean by temporary mount?
-*   Once we **shutdown** the instance or the instances get shut down or **rebooted** by any reason, Whoosh! you efs mount is gone.
+> **NOTE: Please open necessary ports in the same security group required for rabbitMQ to function, otherwise you’ll face unnecessary errors. Refer the article for information about clustering port to enable:** [https://www.rabbitmq.com/docs/networking#ports](https://www.rabbitmq.com/docs/networking#ports)
 
-13. Lets see this in action
+### 8. Run the ansible_script.sh
 
-*   Reboot any one instance
+*   There you go !!!
+*   Your cluster is created
 
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*QVDTUUsL4Ly5U09HzpCthA.png)
+![Ensuring RabbitMQ cluster creation](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*7HATnGOthHQDaWfQO32evQ.png)
 
-*   I have **rebooted** the **EFS-Demo-Instance-1**
+Thank you!!
 
-![Rebooting the instance 1](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*h1VbpqDjLs_lbvz5XIvX2g.png)
-
-*   Now Let’s connect to EC2-Demo-Instance-1 and check the **efs** mount.
-
-![Checking EFS mount](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*R0XgNmzIXO3G5ITw_PcklA.png)
-
-*   As you can see **file1** is not visible even though it is present on File system. (check from EFS-Demo-Instance-2)
-*   So, What do we do to make the changes persist even after reboot? Let’s see.
-
-13. Mount the file system once again.
-
-*   First mount the file system again on instance 1 using the above mount command in **step 10.**
-
-![Mounting file system again](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*DQKbWfu0brsdGO_MBmxULg.png)
-
-14. Register entry of file system in **/etc/fstab.**
-
-* Edit the /etc/fstab using vim editor or editor of your choice.
-
-```
-sudo vim /etc/fstab
-`````
-![captionless image](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*CNn3kjumbwHuu85okBTfGQ.png)
-
-Append the following to file fstab file.
-
-```
-fs-0c5a2099e4dfd9fcd.efs.ap-south-1.amazonaws.com:/ /home/ubuntu/efs nfs4 defaults,_netdev 0 0
-`````
-This will **persist** the mount even if the instances are shut down or rebooted.
-
-15. Follow this on **both** the instances.
-
-Happy Learning!!!!!😁😁
+Keep Learning And Keep Sharing!👍😁
